@@ -138,9 +138,57 @@ namespace mmgd
 		friend poly fracodotflat(poly& poly1, poly& poly2); // residue dual Hadamard de polynome, retourne un nouveau polynome
 															// poly1 << odot(result,poly2) Hypothese poly2>>poly1 sinon on retourne Top
 
+		// |=====================================================================|
+		// | Hadamard product on polynomials                                     |
+		// |=====================================================================|
+		// | Description:														 |
+		// | New version of Hadamard product, residuation and dual residuation   |
+		// | of the Hadamard product on polynomials.   							 |
+		// | Added by Davide Zorzenon (07/03/2020)								 |
+		// |---------------------------------------------------------------------|
 
+		friend poly hadamard_prod(poly& poly1, poly& poly2); 
+		// Hadamard product of 2 polynomials
+		//
+		// Inputs:
+		//			poly1 (poly&): polynomial in M_in^ax[[g,d]]
+		//			poly2 (poly&): polynomial in M_in^ax[[g,d]]
+		//
+		// Output:
+		//			poly_result (poly): polynomial in M_in^ax[[g,d]]
+		//
+		// Description:
+		//          Vanilla form, does not use any trick to fasten the computation
+
+		friend poly hadamard_res(poly& poly1, poly& poly2); 
+		// Residual of the Hadamard product of 2 polynomials
+		//
+		// Inputs:
+		//			poly1 (poly&): polynomial in M_in^ax[[g,d]]
+		//			poly2 (poly&): polynomial in M_in^ax[[g,d]]
+		//
+		// Output:
+		//			poly_result (poly): polynomial in M_in^ax[[g,d]]
+
+		friend poly hadamard_dualres(poly& poly1, poly& poly2); 
+		// Dual residual of the Hadamard product of 2 polynomials
+		//
+		// Inputs:
+		//			poly1 (poly&): polynomial in M_in^ax[[g,d]]
+		//			poly2 (poly&): polynomial in M_in^ax[[g,d]]
+		//
+		// Output:
+		//			poly_result (poly): polynomial in M_in^ax[[g,d]]
+		//
+		// Exception:
+		//			an exception is returned when there is a time t such that
+		//			(poly2(t) == +infinit or poly2(t) == -infinit) and	
+		//			poly1(t) != +infinit, since in this case the operation is not 
+		//			defined. The output returned in this case is g-inf.d+inf 
 	};
 
 }//fin namespace mmgd
 #endif
+
+
 
