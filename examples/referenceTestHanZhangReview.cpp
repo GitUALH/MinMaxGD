@@ -21,7 +21,7 @@ using namespace std;
 /////////////////////////////////////////////////////////////////////
 using namespace mmgd;
 #endif
-
+//// *** Example for 
 void iteration();
 smatrix Phi(smatrix  H, serie P, serie beta,serie xA,smatrix Pt,smatrix u,serie xR);
 int main()
