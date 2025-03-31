@@ -104,7 +104,63 @@ namespace mmgd
 		friend serie Dualfrac(serie  & s1, gd & gd2);
 		friend serie prcaus(serie &);
 
+		// |===================================================================|
+        // | Hadamard product on series                                        |
+        // |===================================================================|
+        // | Description:													   |
+        // | New version of Hadamard product, residuation and dual residuation |
+        // | of the Hadamard product on series.           					   |
+        // | Added by Davide Zorzenon (07/03/2020)							   |
+        // |-------------------------------------------------------------------|
 
+        friend serie hadamard_prod(serie &s1,serie &s2);
+        // Hadamard product of 2 series
+        //
+        // Inputs:
+        //			s1 (serie&): series in M_in^ax[[g,d]]
+        //			s2 (serie&): series in M_in^ax[[g,d]]
+        //
+        // Output:
+        //			s_result (serie): series in M_in^ax[[g,d]]
+
+        friend serie hadamard_res(serie &s1,serie &s2);
+        // Residual of the Hadamard product of 2 series
+        //
+        // Inputs:
+        //			s1 (serie&): series in M_in^ax[[g,d]]
+        //			s2 (serie&): series in M_in^ax[[g,d]]
+        //
+        // Output:
+        //			s_result (serie): series in M_in^ax[[g,d]]
+
+        friend serie hadamard_dualres(serie &s1,serie &s2);
+        // Dual residual of the Hadamard product of 2 series
+        //
+        // Inputs:
+        //			s1 (serie&): series in M_in^ax[[g,d]]
+        //			s2 (serie&): series in M_in^ax[[g,d]]
+        //
+        // Output:
+        //			s_result (serie): series in M_in^ax[[g,d]]
+
+		// Variations of the same functions for monomials / series, polynomial / series
+		//friend serie hadamard_prod(serie& s1, gd& gd2);
+		//friend serie hadamard_prod(gd& gd1, serie& s2);
+		//friend serie hadamard_prod(serie& s1, poly& poly2);
+		//friend serie hadamard_prod(poly& poly1, serie& s2);
+
+		//friend serie hadamard_res(serie& s1, gd& gd2);
+		//friend serie hadamard_res(gd& gd1, serie& s2);
+		//friend serie hadamard_res(serie& s1, poly& poly2);
+		//friend serie hadamard_res(poly& poly1, serie& s2);
+
+		//friend serie hadamard_dualres(serie& s1, gd& gd2);
+		//friend serie hadamard_dualres(gd& gd1, serie& s2);
+		//friend serie hadamard_dualres(serie& s1, poly& poly2);
+		//friend serie hadamard_dualres(poly& poly1, serie& s2);
+
+		serie r_T(long T, serie &u);
+		serie r_T_res(long T, serie u);
 	};
 
 	serie fracodotsharp(serie &, serie &);
@@ -113,4 +169,6 @@ namespace mmgd
 }//fin namespace mmgd
 
 #endif
+
+
 
