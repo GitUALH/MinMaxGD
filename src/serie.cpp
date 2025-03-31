@@ -26,6 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace mmgd
 {
+
 #ifndef _WIN32
 #include "../include/serie.h"
 #else
@@ -1604,7 +1605,6 @@ if (temp==s1)
    monome.init(0,0);
 
 	result.q=oplus(s1.q,s1.r);		//(q+r)
-
 //cout<<" before (q+r)*"<<endl;
 	result=star(result.q);	// (q+r)*
 
@@ -1617,7 +1617,6 @@ if (temp==s1)
 
 	result=otimes(temp,result);
 //cout<<" after p*(e+q(q+r)*"<<endl;
-
 	return(result);
 
 }
@@ -2273,9 +2272,720 @@ serie prcaus(serie & s)
 
 
 
+// |=========================================================================|
+// | Hadamard product on series                                              |
+// |=========================================================================|
+// | Description:															 |
+// | New version of Hadamard product, residuation and dual residuation of the|
+// | Hadamard product on series.           									 |
+// | Added by Davide Zorzenon (07/03/2020)									 |
+// |-------------------------------------------------------------------------|
 
+struct str_expand {	// structure for expanding series
+	unsigned int i;	// index
+	poly qtemp;		// temporary polynomial
+	poly p_result;	// polynomial that contains the expanded series
+};
+
+str_expand expand_series(poly& p, poly& q, gd& r, long T, unsigned int ii)
+// Expand series p + qr* up to time T, the result is contained in a structure
+//
+// Inputs:
+//			p (poly&): transient part of s
+//			q (poly&): periodic part of s
+//			r (poly&): period of s
+//			T (long): time up which s is expanded
+//			ii (unsigned int): index from which we start expanding s
+//
+// Output:
+//			str_result (str_expand): strucutre	i -> final index of ii
+//												qtemp -> temporary polynomial
+//												p_result -> expanded polynomial
+{
+	unsigned int i;
+	poly qtemp, qtemp1, p_result;
+	gd gdtemp;
+	long Ti;
+	str_expand str_result;
+
+	// Check if the delta-exponent of r is zero (added by Dominik)
+	if (r.getd() == 0)
+	{
+		// The result is just p + q as the series does not change after the transient phase
+		str_result.i = ii;
+		str_result.qtemp = q;
+		str_result.p_result = oplus(p, q);
+		return str_result; // return p + q
+	}
+
+	// If tau != 0: expand s up to T and save the result in p_result
+	p_result = p; // variable for the result
+	qtemp = q; // polynomial q
+	i = ii; // current index
+	gdtemp = qtemp.getpol(i); // current monomial
+	Ti = gdtemp.getd(); // delta-exponent of the current monomial
+
+	while (Ti < T) // expanding the series until $T$
+	{
+		p_result	= oplus(p_result, gdtemp); // add monomial to the result
+		if (i == qtemp.getn() - 1) // if the index arrives at the last monomial of q
+		{
+			// extend q by adding q * r to it
+			qtemp1	= otimes(qtemp, r);
+			qtemp	= oplus(qtemp, qtemp1);
+		}
+		i		+= 1; // next index
+		gdtemp	= qtemp.getpol(i); // next monomial
+		Ti		= gdtemp.getd(); // next delta-exponent
+	}
+
+	// save variables of the structure and return the result
+	// {{{ Modified by D. Zorzenon in 2022
+	gdtemp = gd(gdtemp.getg(), T);
+	// }}} Modified by D. Zorzenon in 2022
+	p_result = oplus(p_result, gdtemp);
+	str_result.i		= i;
+	str_result.qtemp	= qtemp;
+	str_result.p_result = p_result;
+	return(str_result);
+}
+
+serie hadamard_prod(serie &s1,serie &s2)
+// Hadamard product of 2 series
+//
+// Inputs:
+//			s1 (serie&): series in M_in^ax[[g,d]]
+//			s2 (serie&): series in M_in^ax[[g,d]]
+//
+// Output:
+//			s_result (serie): series in M_in^ax[[g,d]]
+{
+    serie s_result;
+    unsigned int i, j;
+    poly p1, p2, q1, q2, ptilde1, ptilde2, ptilde, pbar, qbar, qtemp, qtemp1;
+    gd r1, r2, gdtemp, rbar;
+    long nu, tau, tprime, Ti;
+	str_expand str_tilde;
+
+    // Transform s1 and s2 in canonical form
+
+    if(s1.canonise==0)
+        s1.canon();
+    if(s2.canonise==0)
+        s2.canon();
+
+	// For checking Epsilon and Top series (see below)
+	r1 = gd(0, 0); // placeholder
+	serie eps = serie(epsilon, epsilon, r1); // epsilon series
+	serie T = serie(epsilon, Top, r1); // top series
+
+    // Extract polynomials p, q, monomial r from s1, s2
+
+    p1 = s1.p;
+    q1 = s1.q;
+    r1 = s1.r;
+
+    p2 = s2.p;
+    q2 = s2.q;
+    r2 = s2.r;
+
+	// Check for epsilon series (absorbing)
+	if (s1 == eps || s2 == eps)
+		return eps; // one of the series is epsilon -> result is epsilon
+
+	// Check for top series (absorbing if for the other series with p + q r*, q does not contain any epsilon coefficients)
+	// A series (not equal to the epsilon series) only contains epsilon coefficients if the
+	// last monomial of q has a gamma-coefficient of +infinity or the delta-exponent is not +infinity
+	if ((s1 == T && (q2.getpol(q2.getn() - 1).getg() == infinit || q2.getpol(q2.getn() - 1).getd() != infinit)) ||
+		(s2 == T && (q1.getpol(q1.getn() - 1).getg() == infinit || q1.getpol(q1.getn() - 1).getd() != infinit)))
+		return Top; // one of the series is top (and the other does not contain epsilon) -> result is T
+
+	// Check if s1 and s2 are polynomials
+
+	bool isFinite1	= r1.getd() == 0;
+	bool isFinite2	= r2.getd() == 0;
+	bool isPoly1	= isFinite1 || r1.getd() == infinit;
+	bool isPoly2	= isFinite2 || r2.getd() == infinit;
+
+	if (!isPoly1 && !isPoly2) {
+		// s1 and s2 are proper series, compute tprime, tau and nu
+		tprime		= max(q1.getpol(0).getd(), q2.getpol(0).getd());
+		tau			= lcm(r1.getd(), r2.getd());
+		nu			= r1.getg() * tau / r1.getd() + r2.getg() * tau / r2.getd();
+		// Expand the series up to tau + tprime - 1
+		str_tilde	= expand_series(p1, q1, r1, tprime + tau - 1, 0);
+		ptilde1		= str_tilde.p_result;
+		str_tilde	= expand_series(p2, q2, r2, tprime + tau - 1, 0);
+		ptilde2		= str_tilde.p_result;
+	}
+	else if (isPoly1 && !isPoly2) {
+		// s1 is a polynomial, s2 is a proper series
+		ptilde1		= oplus(p1, q1);
+
+		if (isFinite1) // the last delta exponent of ptilde1 is not infinit
+		{
+			tprime		= ptilde1.getpol(ptilde1.getn() - 1).getd(); // t_m
+			str_tilde	= expand_series(p2, q2, r2, tprime, 0); // expand until t_m
+			ptilde2		= str_tilde.p_result;
+			ptilde		= hadamard_prod(ptilde1, ptilde2);
+			s_result	= serie(ptilde);
+			return(s_result);
+		}
+		else // the last delta exponent of ptilde1 is infinit
+		{
+			tprime		= max(p1.getpol(p1.getn() - 1).getd() + 1, q2.getpol(0).getd()); // t_0 = max(t_{m-1} + 1, T1)
+			tau			= r2.getd();
+			nu			= r2.getg();
+			str_tilde	= expand_series(p2, q2, r2, tprime + tau - 1, 0); // expand until t0 + tau - 1
+			ptilde2		= str_tilde.p_result;
+		}
+	}
+	else if (!isPoly1 && isPoly2) {
+		// s2 is a polynomial, s1 is a proper series
+		ptilde2		= oplus(p2, q2);
+
+		if (isFinite2) // the last delta exponent of ptilde2 is not infinit
+		{
+			tprime		= ptilde2.getpol(ptilde2.getn() - 1).getd(); // t_m
+			str_tilde	= expand_series(p1, q1, r1, tprime, 0); // expand until t_m
+			ptilde1		= str_tilde.p_result;
+			ptilde		= hadamard_prod(ptilde1, ptilde2);
+			s_result	= serie(ptilde);
+			return(s_result);
+		}
+		else // the last delta exponent of ptilde2 is infinit
+		{
+			tprime		= max(q1.getpol(0).getd(), p2.getpol(p2.getn() - 1).getd() + 1); // t0 = max(T1, t_{m-1}+1)
+			tau			= r1.getd();
+			nu			= r1.getg();
+			str_tilde	= expand_series(p1, q1, r1, tprime + tau - 1, 0);  // expand until t0 + tau - 1
+			ptilde1		= str_tilde.p_result;
+		}
+	}
+	else
+	{
+		// s1 and s2 are polynomials
+		ptilde1		= oplus(p1, q1);
+		ptilde2		= oplus(p2, q2);
+		ptilde		= hadamard_prod(ptilde1, ptilde2);
+		s_result	= serie(ptilde);
+		return(s_result);
+	}
+
+    // Compute ptilde
+
+    ptilde = hadamard_prod(ptilde1,ptilde2);
+
+    // Compute pbar, qbar, rbar, finally s_result = pbar + qbar rbar*
+
+    i			= 0;
+    Ti			= ptilde.getpol(i).getd();
+	// Distribute the monomials of ptilde among pbar and qbar
+    // pbar
+    pbar		= gd(infinit,_infinit);
+    while (Ti < tprime) {
+        pbar	= oplus(pbar, ptilde.getpol(i));
+        i		+= 1;
+        Ti		= ptilde.getpol(i).getd();
+    }
+    // qbar
+    qbar		= gd(infinit, _infinit);
+    while (Ti >= tprime && Ti < tprime + tau) {
+        qbar	= oplus(qbar, ptilde.getpol(i));
+        i		+= 1;
+        Ti		= ptilde.getpol(i).getd();
+    }
+	if (i < ptilde.getn())
+	{
+		rbar	= gd(ptilde.getpol(i).getg(), tprime + tau - 1);
+		qbar	= oplus(qbar, rbar);
+	}
+    // rbar
+    rbar		= gd(nu, tau);
+
+    // s_result
+    s_result.init(pbar, qbar, rbar);
+    return(s_result);
+}
+
+// Returns the exponent of Gamma for a given Delta exponent
+long gammaByDelta(poly p, long delta)
+{
+	vector<long> v;
+	long gamma = infinit;
+	v.push_back(_infinit);
+	for (int i = 0; i < p.getn(); i++)
+		v.push_back(p.getpol(i).getd());
+	v.push_back(infinit);
+
+	// Loop through the vector
+	for (auto i = v.begin(); i != v.end(); i++)
+	{
+		if (*i < delta && delta <= *(i + 1))
+		{
+			auto it = find(v.begin(), v.end(), *(i + 1));
+			int index = it - v.begin();
+
+			gamma = p.getpol(index - 1).getg();
+
+			break;
+		}
+	}
+
+	return gamma;
+}
+
+// Compute a' (called kappa in the report)
+long compute_aprime(poly p1, poly p2, long t_0, long tau, long nu)
+{
+	long i = 0, j = 0; // indices for the monomials of p1 and p2
+	std::vector<long> v1, v2; // vectors for parts 1 and 2
+
+	gd gd_1;
+	gd gd_2;
+
+	// Part 1 (alpha up to t0 - 1)
+	do
+	{
+		gd_1 = p1.getpol(i);
+		gd_2 = p2.getpol(j);
+
+		v1.push_back(gd_1.getg() - gd_2.getg());
+
+		// decide which monomials to use next based on the delta-exponents
+		if (gd_1.getd() < gd_2.getd())
+			i++;
+		else if (gd_1.getd() > gd_2.getd())
+			j++;
+		else if (gd_1.getd() == gd_2.getd() && gd_1.getd() < t_0)
+		{
+			i++; j++;
+		}
+
+	} while (gd_1.getd() < t_0 - 1 || gd_2.getd() < t_0 - 1);
+
+	// Part 2 (t0 up to t0 + tau - 1)
+	long threshold = t_0 + tau;
+
+	do
+	{
+		gd_1 = p1.getpol(i);
+		gd_2 = p2.getpol(j);
+
+		v2.push_back(gd_1.getg() - gd_2.getg());
+
+		// decide which monomials to use next based on the delta-exponents
+		if (gd_1.getd() < gd_2.getd())
+			i++;
+		else if (gd_1.getd() > gd_2.getd())
+			j++;
+		else
+		{
+			i++; j++;
+		}
+
+	} while (gd_1.getd() < threshold - 1 || gd_2.getd() < threshold - 1);
+
+	// determine the maximum of the vectors v1 and v2, respectively
+	long max_1 = *std::max_element(v1.begin(), v1.end());
+	long max_2 = *std::max_element(v2.begin(), v2.end());
+	long a_prime = 1 + ceil(((double)max_1 - max_2) / nu); // compute a'
+	a_prime = max(1L, a_prime); // a' = max(1, a')
+
+	// output
+	return a_prime;
+}
+
+serie hadamard_res(serie &s1,serie &s2)
+// Residual of the Hadamard product of 2 series
+//
+// Inputs:
+//			s1 (serie&): series in M_in^ax[[g,d]]
+//			s2 (serie&): series in M_in^ax[[g,d]]
+//
+// Output:
+//			s_result (serie): series in M_in^ax[[g,d]]
+{
+    serie s_result;
+    unsigned int i, j, i_memory1, i_memory2;
+    poly p1, p2, q1, q2, ptilde1, ptilde2, ptilde, pbar, qbar, qtemp, qtemp1, q_memory1, q_memory2;
+    gd r1, r2, gdtemp, rbar;
+    long nu, tau, tprime, Ti, aprime;
+	str_expand str_tilde;
+
+    // Transform s1 and s2 in canonical form
+
+    if(s1.canonise==0)
+        s1.canon();
+    if(s2.canonise==0)
+        s2.canon();
+
+    // Extract polynomials p, q, monomial r from s1, s2
+
+    p1 = s1.p;
+    q1 = s1.q;
+    r1 = s1.r;
+
+    p2 = s2.p;
+    q2 = s2.q;
+    r2 = s2.r;
+
+	// Check if s1 and s2 are polynomials
+
+	bool isFinite1	= r1.getd() == 0;
+	bool isFinite2	= r2.getd() == 0;
+	bool isPoly1	= isFinite1 || r1.getd() == infinit;
+	bool isPoly2	= isFinite2 || r2.getd() == infinit;
+
+	if (!isPoly1 && !isPoly2) {
+		// s1 and s2 are proper series, compute tprime, tau and nu
+		tprime		= max(q1.getpol(0).getd(), q2.getpol(0).getd()); // In Soraia's thesis this is called t0
+		tau			= lcm(r1.getd(), r2.getd());
+		nu			= r1.getg() * tau / r1.getd() - r2.getg() * tau / r2.getd();
+		// Expand the series up to tau + tprime - 1
+		str_tilde	= expand_series(p1, q1, r1, tprime + tau - 1, 0); // expand until t0 + tau - 1
+		ptilde1		= str_tilde.p_result;
+		q_memory1	= str_tilde.qtemp;
+		i_memory1	= str_tilde.i;
+		str_tilde	= expand_series(p2, q2, r2, tprime + tau - 1, 0); // expand until t0 + tau - 1
+		ptilde2		= str_tilde.p_result;
+		q_memory2	= str_tilde.qtemp;
+		i_memory2	= str_tilde.i;
+	}
+	else if (isPoly1 && !isPoly2) {
+		// s1 is a polynomial, s2 is a proper series
+		ptilde1		= oplus(p1, q1);
+
+		if (isFinite1) // the last delta exponent of ptilde1 is not infinit
+		{
+			tprime		= ptilde1.getpol(ptilde1.getn() - 1).getd() + 1; // t_m + 1
+			str_tilde	= expand_series(p2, q2, r2, tprime, 0); // expand until t_m + 1
+			ptilde2		= str_tilde.p_result;
+			ptilde		= hadamard_res(ptilde1, ptilde2);
+			s_result	= serie(ptilde);
+			/// Ajout LH 31/03
+		s_result.canonise=0;
+		s_result.canon();
+			return(s_result);
+		}
+		else // the last delta exponent of ptilde1 is infinit
+		{
+			tprime		= p1.getpol(p1.getn() - 1).getd() + 1; // t_{m-1} + 1
+			nu			= 0;
+			str_tilde	= expand_series(p2, q2, r2, tprime, 0); // expand until t_{m-1} + 1
+			ptilde2		= str_tilde.p_result;
+		}
+	}
+	else if (!isPoly1 && isPoly2) {
+		// s2 is a polynomial, s1 is a proper series
+		ptilde2 = oplus(p2, q2);
+
+		if (isFinite2) // the last delta exponent of ptilde2 is not infinit
+		{
+			tprime		= ptilde2.getpol(ptilde2.getn() - 1).getd(); // t_m
+			str_tilde	= expand_series(p1, q1, r1, tprime, 0); // expand until t_m
+			ptilde1		= str_tilde.p_result;
+			ptilde		= hadamard_res(ptilde1, ptilde2);
+			s_result	= serie(ptilde);
+			/// Ajout LH 31/03
+		s_result.canonise=0;
+		s_result.canon();
+			return(s_result);
+		}
+		else // the last delta exponent of ptilde2 is infinit
+		{
+			tprime		= max(q1.getpol(0).getd(), p2.getpol(p2.getn() - 1).getd() + 1); // t0 = max(T1, t_{m-1} + 1)
+			tau			= r1.getd();
+			nu			= r1.getg();
+			str_tilde	= expand_series(p1, q1, r1, tprime + tau - 1, 0); // expand until t0 + tau - 1
+			ptilde1		= str_tilde.p_result;
+			q_memory1	= str_tilde.qtemp;
+			i_memory1	= str_tilde.i;
+			q_memory2	= q2;
+			i_memory2	= 0;
+		}
+	}
+	else
+	{
+		// s1 and s2 are polynomials
+		ptilde1		= oplus(p1, q1);
+		ptilde2		= oplus(p2, q2);
+		ptilde		= hadamard_res(ptilde1, ptilde2);
+		s_result	= serie(ptilde);
+		/// Add LH 31/03, here the first problem, if last monomila is with delta infinite,  r is not (0,0)
+		s_result.canonise=0;
+		s_result.canon();
+		return(s_result);
+	}
+
+    // Compute ptilde
+
+    ptilde = hadamard_res(ptilde1,ptilde2);
+
+    // nu <= 0 => s_result = ptilde d1.g0*
+
+    if (nu <= 0)
+    {
+        rbar		= gd(ptilde.getpol(ptilde.getn()-1).getg(),infinit);
+        pbar		= oplus(ptilde, rbar);
+
+        s_result	= pbar;
+
+        return(s_result);
+    }
+
+    // Compute aprime and the new tprime
+
+	aprime = compute_aprime(ptilde1, ptilde2, tprime, tau, nu); // new a'
+    tprime = tprime + tau * aprime; // this is what Soraia calls tprime
+
+    // Recompute ptilde with the new tprime
+
+    // Compute ptilde1 and ptilde2 by expanding p + qr* up to tprime + tau
+
+	str_tilde	= expand_series(p1, q1, r1, tprime + tau - 1, 0);
+	ptilde1		= str_tilde.p_result;
+	str_tilde	= expand_series(p2, q2, r2, tprime + tau - 1, 0);
+	ptilde2		= str_tilde.p_result;
+
+    // Compute the new ptilde
+
+    ptilde = hadamard_res(ptilde1,ptilde2);
+
+    // Compute pbar, qbar, rbar, finally s_result = pbar + qbar rbar*
+
+    i		= 0;
+    Ti		= ptilde.getpol(i).getd();
+
+	// Distribute the monomials of ptilde among pbar and qbar
+    // pbar
+    pbar	= gd(infinit,_infinit);
+    while (Ti < tprime)
+    {
+        pbar	= oplus(pbar, ptilde.getpol(i));
+        i		+= 1;
+        Ti		= ptilde.getpol(i).getd();
+    }
+    // qbar
+    qbar		= gd(infinit,_infinit);
+    while (Ti >= tprime && Ti < tprime + tau)
+	{
+        qbar	= oplus(qbar, ptilde.getpol(i));
+        i		+= 1;
+        Ti		= ptilde.getpol(i).getd();
+    }
+	if (i < ptilde.getn())
+	{
+		rbar	= gd(ptilde.getpol(i).getg(), tprime + tau - 1);
+		qbar	= oplus(qbar, rbar);
+	}
+    // rbar
+    rbar	= gd(nu, tau);
+
+    // s_result
+    s_result.init(pbar, qbar, rbar);
+    /// Add LH 31/03
+    s_result.canonise=0;
+		s_result.canon();
+    return(s_result);
+}
+
+serie hadamard_dualres(serie &s1,serie &s2)
+// Dual residual of the Hadamard product of 2 series
+//
+// Inputs:
+//			s1 (serie&): series in M_in^ax[[g,d]]
+//			s2 (serie&): series in M_in^ax[[g,d]]
+//
+// Output:
+//			s_result (serie): series in M_in^ax[[g,d]]
+//
+// Exception:
+//			an exception is returned when there is a time t such that
+//			(s2(t) == +infinit or s2(t) == -infinit) and s1(t) != +infinit,
+//			since in this case the operation is not defined. The output returned
+//			in this case is g-inf.d+inf
+{
+    serie s_result;
+    unsigned int i, j, i_memory2;
+    poly p1, p2, q1, q2, ptilde1, ptilde2, ptilde, pbar, qbar, qtemp, qtemp1, q_memory2;
+    gd r1, r2, gdtemp, rbar;
+    long nu, tau, tprime, Ti;
+	str_expand str_tilde;
+
+    // Transform s1 and s2 in canonical form
+
+    if(s1.canonise==0)
+        s1.canon();
+    if(s2.canonise==0)
+        s2.canon();
+
+    // Extract polynomials p, q, monomial r from s1, s2
+
+    p1 = s1.p;
+    q1 = s1.q;
+    r1 = s1.r;
+
+    p2 = s2.p;
+    q2 = s2.q;
+    r2 = s2.r;
+
+	// Check if s1 and s2 are polynomials
+
+	bool isFinite1	= r1.getd() == 0;
+	bool isFinite2	= r2.getd() == 0;
+	bool isPoly1	= isFinite1 || r1.getd() == infinit;
+	bool isPoly2	= isFinite2 || r2.getd() == infinit;
+
+	if (!isPoly1 && !isPoly2) {
+		// s1 and s2 are proper series, compute tprime, tau and nu
+		tprime		= max(q1.getpol(0).getd(), q2.getpol(0).getd()); // This is called t0 in Soraia's thesis
+		tau			= lcm(r1.getd(), r2.getd());
+		nu			= r1.getg() * tau / r1.getd() - r2.getg() * tau / r2.getd();
+		// nu < 0, s1 - s2 is decreasing => s_result = top
+		if (nu < 0)
+		{
+			s_result = gd(_infinit, infinit);
+			return(s_result);
+		}
+		// Expand the series up to tau + tprime - 1
+		str_tilde	= expand_series(p1, q1, r1, tprime + tau - 1, 0);
+		ptilde1		= str_tilde.p_result;
+		str_tilde	= expand_series(p2, q2, r2, tprime + tau - 1, 0);
+		ptilde2		= str_tilde.p_result;
+		i_memory2	= str_tilde.i;
+		q_memory2	= str_tilde.qtemp;
+	}
+	else if (isPoly1 && !isPoly2) {
+		// s1 is a polynomial, s2 is a proper series
+		ptilde1		= oplus(p1, q1);
+
+		if (isFinite1) // the last delta exponent of ptilde1 is not infinit
+		{
+			tprime		= ptilde1.getpol(ptilde1.getn() - 1).getd(); // t_m
+			str_tilde	= expand_series(p2, q2, r2, tprime, 0); // expand until t_m
+			ptilde2		= str_tilde.p_result;
+			ptilde		= hadamard_dualres(ptilde1, ptilde2);
+			s_result	= serie(ptilde);
+			 /// Add LH 31/03
+        s_result.canonise=0;
+		s_result.canon();
+			return(s_result);
+		}
+		else // the last delta exponent of ptilde1 is infinit
+		{
+			// nu < 0, s1 - s2 is decreasing => s_result = top
+			s_result	= gd(_infinit, infinit);
+			return(s_result);
+		}
+	}
+	else if (!isPoly1 && isPoly2) {
+		// s2 is a polynomial, s1 is a proper series
+		ptilde2		= oplus(p2, q2);
+
+		if (isFinite2) // the last delta exponent of ptilde2 is not infinit
+		{
+			std::cout << "hadamard_dualres: invalid series" << std::endl;
+			ptilde		= gd(_infinit, infinit);
+			s_result	= serie(ptilde);
+			return(s_result); // return the top series
+		}
+		else // the last delta exponent of ptilde2 is infinit
+		{
+			tprime		= max(q1.getpol(0).getd(), p2.getpol(p2.getn() - 1).getd() + 1); // t0 = max(T1, t_{m-1} + 1)
+			tau			= r1.getd();
+			nu			= r1.getg();
+			str_tilde	= expand_series(p1, q1, r1, tprime + tau - 1, 0); // expand until t0 + tau - 1
+			ptilde1		= str_tilde.p_result;
+			i_memory2	= 0;
+			q_memory2	= q2;
+		}
+	}
+	else
+	{
+		// s1 and s2 are polynomials
+		ptilde1		= oplus(p1, q1);
+		ptilde2		= oplus(p2, q2);
+		ptilde		= hadamard_dualres(ptilde1, ptilde2);
+		s_result	= serie(ptilde);
+		 /// Add LH 31/03
+        s_result.canonise=0;
+		s_result.canon();
+		return(s_result);
+	}
+
+    // Compute ptilde
+
+    ptilde = hadamard_dualres(ptilde1,ptilde2);
+
+    // nu == 0 => s_result = ptilde d1.g0*
+
+    if (nu == 0)
+    {
+        rbar		= gd(ptilde.getpol(ptilde.getn()-1).getg(),infinit);
+        pbar		= oplus(ptilde, rbar);
+
+        s_result	= pbar;
+        return(s_result);
+    }
+
+    // Compute pbar, qbar, rbar, finally s_result = pbar + qbar rbar*
+
+    i = 0;
+    Ti = ptilde.getpol(i).getd();
+
+    // pbar
+    pbar	= gd(infinit,_infinit);
+    while (Ti < tprime)
+    {
+        pbar	= oplus(pbar, ptilde.getpol(i));
+        i		+= 1;
+        Ti		= ptilde.getpol(i).getd();
+    }
+    // qbar
+    qbar	= gd(infinit,_infinit);
+    while (Ti >= tprime && Ti < tprime + tau)
+    {
+        qbar	= oplus(qbar, ptilde.getpol(i));
+        i		+= 1;
+        Ti		= ptilde.getpol(i).getd();
+    }
+	if (i < ptilde.getn())
+	{
+		rbar	= gd(ptilde.getpol(i).getg(), tprime + tau - 1);
+		qbar	= oplus(qbar, rbar);
+	}
+    // rbar
+    rbar	= gd(nu, tau);
+
+    // s_result
+    s_result.init(pbar, qbar, rbar);
+     /// Add LH 31/03
+        s_result.canonise=0;
+		s_result.canon();
+    return(s_result);
+}
+// Returns [r_T(u)](t) - for monomials, polynomials and series
+// Implementation involving the Hadamard product
+serie r_T(long T, serie &u)
+{  serie s;
+   s.getq().init(0,T);
+    return hadamard_prod(u, s);
+}
+
+// Returns [r^#_T(u)](t) - for monomials, polynomials and series
+// Implementation involving the residual of the Hadamard product
+serie r_T_res(long T, serie &u)
+{  serie s;
+   s.getq().init(0,T);
+    s=hadamard_res(u, s);
+    s.canon();
+    return s;
+}
 
 }//fin namespace mmgd
+
+
 
 
 
