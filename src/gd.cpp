@@ -301,7 +301,7 @@ namespace mmgd
 	{
 		gd temp = gd1;
 
-		if (!(gd1.d <= gd2.d))  // dans un premier temps on se limite à ce cas
+		if (!(gd1.d <= gd2.d))  // dans un premier temps on se limite Ã  ce cas
 		{
 			gd temp1 = gd1;
 			gd temp2 = gd2;
@@ -322,5 +322,127 @@ namespace mmgd
 
 	}
 
+	// |=========================================================================|
+	// | Hadamard product on monomials                                           |
+	// |=========================================================================|
+	// | Description:															 |
+	// | New version of Hadamard product, residuation and dual residuation of the|
+	// | Hadamard product on monomials.											 |
+	// | Added by Davide Zorzenon (07/03/2020)									 |
+	// |-------------------------------------------------------------------------|
+
+	gd   hadamard_prod(const gd& gd1, const gd& gd2)
+		// Hadamard product of 2 monomials
+		//
+		// Inputs:
+		//			gd1 (gd&): monomial in M_in^ax[[g,d]]
+		//			gd2 (gd&): monomial in M_in^ax[[g,d]]
+		//
+		// Output:
+		//			gd_result (gd): monomial in M_in^ax[[g,d]]
+	{
+		gd gd_result;
+
+		// delta exponent
+
+
+		if (gd1.d < gd2.d)
+			gd_result.d = gd1.d;
+		else
+			gd_result.d = gd2.d;
+
+
+		//gd_result.d = min(gd1.d, gd2.d); // replaced the above if-else statements by this
+
+		// gamma coefficient
+
+		if (gd1.g == infinit || gd2.g == infinit)
+			gd_result.g = infinit; // eps absorbing
+		else if (gd1.g == _infinit || gd2.g == _infinit)
+			gd_result.g = _infinit; // T absorbing (except for eps)
+		else
+			gd_result.g = gd1.g + gd2.g;
+
+		return(gd_result);
+	}
+
+	gd  hadamard_res(const gd& gd1, const gd& gd2)
+		// Residual of the Hadamard product of 2 monomials
+		//
+		// Inputs:
+		//			gd1 (gd&): monomial in M_in^ax[[g,d]]
+		//			gd2 (gd&): monomial in M_in^ax[[g,d]]
+		//
+		// Output:
+		//			gd_result (gd): monomial in M_in^ax[[g,d]]
+	{
+		gd gd_result;
+
+		// delta exponent
+
+		if (gd1.d >= gd2.d)
+			gd_result.d = infinit;
+		else
+			gd_result.d = gd1.d;
+
+		// gamma coefficient with convention (+inf) - (+inf) = (-inf) - (-inf) = (-inf)
+
+		if (gd1.g == _infinit || gd2.g == infinit)
+			gd_result.g = _infinit;
+		else if (gd1.g == infinit || gd2.g == _infinit)
+			gd_result.g = infinit;
+		else
+			gd_result.g = gd1.g - gd2.g;
+
+		return(gd_result);
+	}
+
+	gd  hadamard_dualres(const gd& gd1, const gd& gd2)
+		// Residual of the Hadamard product of 2 monomials
+		//
+		// Inputs:
+		//			gd1 (gd&): monomial in M_in^ax[[g,d]]
+		//			gd2 (gd&): monomial in M_in^ax[[g,d]]
+		//
+		// Output:
+		//			gd_result (gd): monomial in M_in^ax[[g,d]]
+		//
+		// Exception:
+		//			an exception is returned when there is a time t such that
+		//			(gd2(t) == +infinit or gd2(t) == -infinit) and
+		//			gd1(t) != +infinit, since in this case the operation is not
+		//			defined. The output returned in this case is g-inf.d+inf
+	{
+		gd gd_result;
+
+		// exception
+
+		if ((gd1.d > gd2.d) ||
+			((gd2.g == infinit || gd2.g == _infinit) && gd1.g != infinit))
+		{
+			gd temp1 = gd1;
+			gd temp2 = gd2;
+			std::cout << "hadamard_dualres(" << temp1 << "," << temp2 << ")" << " is not defined" << std::endl;
+
+			gd_result.g = _infinit;
+			gd_result.d = infinit;
+			return(gd_result); // return top element (as a monomial)
+		}
+
+		// no exception
+		// delta exponent
+
+		gd_result.d = gd1.d;
+
+		// gamma coefficient
+
+		if (gd1.g == infinit)
+			gd_result.g = infinit;
+		else
+			gd_result.g = gd1.g - gd2.g;
+
+		return(gd_result);
+	}
 
 }//fin de namespace mmgd
+
