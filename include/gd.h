@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 #ifndef __GD_H__
 #define __GD_H__
 
@@ -127,6 +128,51 @@ namespace mmgd
 			  // la fonction retourne
 			  // un monome  pour permettre un appel successif
 
+			  // |===============================================================|
+			  // | Hadamard product on monomials                                 |
+			  // |===============================================================|
+			  // | Description:													 |
+			  // | New version of Hadamard product, residuation and dual		 |
+			  // | residuation of the Hadamard product on monomials.			 |
+			  // | Added by Davide Zorzenon (07/03/2020)						 |
+			  // |---------------------------------------------------------------|
+
+			  friend gd  hadamard_prod(const gd& gd1, const gd& gd2);
+			  // Hadamard product of 2 monomials
+			  //
+			  // Inputs:
+			  //			gd1 (gd&): monomial in M_in^ax[[g,d]]
+			  //			gd2 (gd&): monomial in M_in^ax[[g,d]]
+			  //
+			  // Output:
+			  //			gd_result (gd): monomial in M_in^ax[[g,d]]
+
+			  friend gd  hadamard_res(const gd& gd1, const gd& gd2);
+			  // Residual of the Hadamard product of 2 monomials
+			  //
+			  // Inputs:
+			  //			gd1 (gd&): monomial in M_in^ax[[g,d]]
+			  //			gd2 (gd&): monomial in M_in^ax[[g,d]]
+			  //
+			  // Output:
+			  //			gd_result (gd): monomial in M_in^ax[[g,d]]
+
+			  friend gd  hadamard_dualres(const gd& gd1, const gd& gd2);
+			  // Residual of the Hadamard product of 2 monomials
+			  //
+			  // Inputs:
+			  //			gd1 (gd&): monomial in M_in^ax[[g,d]]
+			  //			gd2 (gd&): monomial in M_in^ax[[g,d]]
+			  //
+			  // Output:
+			  //			gd_result (gd): monomial in M_in^ax[[g,d]]
+			  //
+			  // Exception:
+			  //			an exception is returned when there is a time t such 
+			  //			that (gd2(t) == +infinit or gd2(t) == -infinit) and	
+			  //			gd1(t) != +infinit, since in this case the operation 
+			  //			is not defined. The output returned in this case is 
+			  //			g-inf.d+inf
 
 	}; // fin de la definition de class gd
 
@@ -134,4 +180,5 @@ namespace mmgd
 
 } // fin de namespace mmgd
 #endif
+
 
