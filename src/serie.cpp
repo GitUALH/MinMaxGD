@@ -1,20 +1,3 @@
-/**
-MINMAXGD
-Copyright (C) {{ 2007 }}  {{ Univeristy of Angers, L. Hardouin }}
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
 #ifndef _WIN32
 #include "../include/serie.h"
 #else
@@ -85,7 +68,7 @@ serie ::  serie(poly &p )
 serie ::  serie( gd &gd1 )
  // constructuer 2bis : serie initialisee avec un objet monome
 { serie temp;
-    temp.p.init(infinit,_infinit);
+  temp.p.init(infinit,_infinit);
   temp.q.init(gd1.getg(),gd1.getd());
   temp.r.init(0,0);
   temp.canonise=1;
@@ -2429,6 +2412,9 @@ serie hadamard_prod(serie &s1,serie &s2)
 			ptilde2		= str_tilde.p_result;
 			ptilde		= hadamard_prod(ptilde1, ptilde2);
 			s_result	= serie(ptilde);
+			 /// Add LH 31/03/2025
+    s_result.canonise=0;
+		s_result.canon();
 			return(s_result);
 		}
 		else // the last delta exponent of ptilde1 is infinit
@@ -2451,6 +2437,9 @@ serie hadamard_prod(serie &s1,serie &s2)
 			ptilde1		= str_tilde.p_result;
 			ptilde		= hadamard_prod(ptilde1, ptilde2);
 			s_result	= serie(ptilde);
+			/// Add LH 31/03/2025
+		s_result.canonise=0;
+		s_result.canon();
 			return(s_result);
 		}
 		else // the last delta exponent of ptilde2 is infinit
@@ -2469,6 +2458,10 @@ serie hadamard_prod(serie &s1,serie &s2)
 		ptilde2		= oplus(p2, q2);
 		ptilde		= hadamard_prod(ptilde1, ptilde2);
 		s_result	= serie(ptilde);
+		/// Add LH 31/03/2025
+		s_result.canonise=0;
+		s_result.canon();
+
 		return(s_result);
 	}
 
@@ -2505,6 +2498,9 @@ serie hadamard_prod(serie &s1,serie &s2)
 
     // s_result
     s_result.init(pbar, qbar, rbar);
+    /// Add LH 31/03/2025
+		s_result.canonise=0;
+		s_result.canon();
     return(s_result);
 }
 
@@ -2663,7 +2659,7 @@ serie hadamard_res(serie &s1,serie &s2)
 			ptilde2		= str_tilde.p_result;
 			ptilde		= hadamard_res(ptilde1, ptilde2);
 			s_result	= serie(ptilde);
-			/// Ajout LH 31/03
+			/// Ajout LH 31/03/2025
 		s_result.canonise=0;
 		s_result.canon();
 			return(s_result);
@@ -2687,7 +2683,7 @@ serie hadamard_res(serie &s1,serie &s2)
 			ptilde1		= str_tilde.p_result;
 			ptilde		= hadamard_res(ptilde1, ptilde2);
 			s_result	= serie(ptilde);
-			/// Ajout LH 31/03
+			///  /// Add LH 31/03/2025
 		s_result.canonise=0;
 		s_result.canon();
 			return(s_result);
@@ -2984,8 +2980,6 @@ serie r_T_res(long T, serie &u)
 }
 
 }//fin namespace mmgd
-
-
 
 
 
