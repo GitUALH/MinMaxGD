@@ -2382,6 +2382,11 @@ serie hadamard_prod(serie &s1,serie &s2)
 	if ((s1 == T && (q2.getpol(q2.getn() - 1).getg() == infinit || q2.getpol(q2.getn() - 1).getd() != infinit)) ||
 		(s2 == T && (q1.getpol(q1.getn() - 1).getg() == infinit || q1.getpol(q1.getn() - 1).getd() != infinit)))
 		return Top; // one of the series is top (and the other does not contain epsilon) -> result is T
+  // LH add if the both are Top (to check later) 14/04/2026
+	if (s1 == T || s2 == T)
+    {
+     cout<<"Pathological case Top odot Top"<<endl;
+     return Top;}
 
 	// Check if s1 and s2 are polynomials
 
@@ -2413,7 +2418,7 @@ serie hadamard_prod(serie &s1,serie &s2)
 			ptilde		= hadamard_prod(ptilde1, ptilde2);
 			s_result	= serie(ptilde);
 			 /// Add LH 31/03/2025
-    s_result.canonise=0;
+        s_result.canonise=0;
 		s_result.canon();
 			return(s_result);
 		}
@@ -2708,7 +2713,7 @@ serie hadamard_res(serie &s1,serie &s2)
 		ptilde2		= oplus(p2, q2);
 		ptilde		= hadamard_res(ptilde1, ptilde2);
 		s_result	= serie(ptilde);
-		/// Add LH 31/03, here the first problem, if last monomila is with delta infinite,  r is not (0,0)
+		/// Add LH 31/03, here the first problem, if last monomial is with delta infinite,  r is not (0,0)
 		s_result.canonise=0;
 		s_result.canon();
 		return(s_result);
@@ -2816,6 +2821,11 @@ serie hadamard_dualres(serie &s1,serie &s2)
     if(s2.canonise==0)
         s2.canon();
 
+// For checking Epsilon and Top series (see below)
+	r1 = gd(0, 0); // placeholder
+	serie eps = serie(epsilon, epsilon, r1); // epsilon series
+	serie T = serie(epsilon, Top, r1); // top series
+if(s1==T || s2==T) return T;
     // Extract polynomials p, q, monomial r from s1, s2
 
     p1 = s1.p;
