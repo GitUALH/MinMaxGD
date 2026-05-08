@@ -1,11 +1,4 @@
-#ifndef _WIN32
-#include "../include/serie.h"
-#else
-#include "..\include\serie.h"
-#endif
 
-#define MAX(a,b)	(( (a)>(b))?(a):(b))
-#define MIN(a,b)	(( (a)<(b))?(a):(b))
 
 namespace mmgd
 {
